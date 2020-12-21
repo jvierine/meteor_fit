@@ -12,6 +12,7 @@ def get_radiant(p0,t0,u0):
     time (unix)
     direction of arrival
     """
+    # tbd: convert to astropy
     llh=jcoord.ecef2geodetic(p0[0], p0[1], p0[2])
     llh2=jcoord.ecef2geodetic(p0[0]-1e3*u0[0], p0[1]-1e3*u0[1], p0[2]-1e3*u0[2])
     aar=jcoord.geodetic_to_az_el_r(llh[0],llh[1],llh[2], llh2[0], llh2[1], llh2[2])

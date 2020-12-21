@@ -12,7 +12,7 @@ from astropy.time import Time
 
 import scam
 
-def itrs_model(pts,ra,dec,p0,t0):
+def itrs_model(pts,ra,dec,p0,t0,plot=True):
     """
     parameters base position p0 (lat,lon,h)
     right ascension and declination of radiant
@@ -23,9 +23,9 @@ def itrs_model(pts,ra,dec,p0,t0):
     n_m=pts.shape[1]
     cp=n.mean(pts,axis=1)
     loc = EarthLocation(x=cp[0]*u.m,y=cp[1]*u.m,z=cp[2]*u.m)
-    loc0=n.array(loc.itrs.cartesian.xyz)
-    loc0.shape=(3,1)
-    pts = pts - loc0
+    #loc0=n.array(loc.itrs.cartesian.xyz)
+    cp.shape=(3,1)
+    pts = pts - cp
     model_pts=n.zeros([3,n_m])
     def model(x):
         ra0=x[0]
@@ -36,14 +36,24 @@ def itrs_model(pts,ra,dec,p0,t0):
                        obstime = obs_time,
                        frame = 'icrs',
                        location = loc)
+        
         u0=n.array(sky.itrs.cartesian.xyz)
+        
         t = pts[0,:]*u0[0] + pts[1,:]*u0[1] + pts[2,:]*u0[2]
         model_pts[0,:]=t*u0[0]
         model_pts[1,:]=t*u0[1]
-        model_pts[2,:]=t*u0[2]        
+        model_pts[2,:]=t*u0[2]
+        
         return(model_pts)
     
     pm=model([ra,dec])
+    
+    if plot:
+        plt.plot(pm[0,:],pm[1,:])
+        plt.plot(pts[0,:],pts[1,:],".")
+        plt.plot([0],[0],"x",color="red")
+        plt.show()
+        
     res=pm-pts
     xv=n.var(res[0,:])
     yv=n.var(res[1,:])
@@ -55,13 +65,27 @@ def itrs_model(pts,ra,dec,p0,t0):
         return(s)
 
     chain=scam.scam(ss,n.array([ra,dec]),step=[0.1,0.1],n_iter=10000,debug=False)
-    print("RA %1.2f +/- %1.2f (2-sigma)"%(n.mean(chain[:,0]),2.0*n.std(chain[:,0])))
-    print("Dec %1.2f +/- %1.2f (2-sigma)"%(n.mean(chain[:,1]),2.0*n.std(chain[:,1])))
-    plt.hist2d(chain[:,0],chain[:,1],bins=10)
-    plt.title("Radian location")
-    plt.xlabel("RA (deg)")
-    plt.ylabel("Dec (deg)")    
-    plt.show()
+    mra=n.mean(chain[:,0])
+    mdec=n.mean(chain[:,1])
+    ra_std=n.std(chain[:,0])
+    dec_std=n.std(chain[:,1])
+    print("RA %1.2f +/- %1.2f (2-sigma)"%(mra,2*mra_std))
+    print("Dec %1.2f +/- %1.2f (2-sigma)"%(mdec,2*dec_std))
+    if plot:
+        plt.hist2d(chain[:,0],chain[:,1],bins=10)
+        plt.title("Radian location")
+        plt.xlabel("RA (deg)")
+        plt.ylabel("Dec (deg)")    
+        plt.show()
+
+        pm=model([mra,mdec])
+        plt.plot(pm[0,:],pm[1,:])
+        plt.plot(pts[0,:],pts[1,:],".")
+        plt.plot([0],[0],"x",color="red")
+        plt.show()
+    return(mra,ra_std,mdec,dec_std)
+        
+
     
 
 def fit_line(lat,
@@ -130,6 +154,8 @@ if __name__ == "__main__":
         ra=radiant.icrs.ra.deg
         dec=radiant.icrs.dec.deg
         print("Initial guess RA/Dec %1.2f/%1.2f"%(ra,dec))
+
+        
         t0=h[("t0")]
         lat=h[("lat_deg")][gidx]
         lon=h[("lon_deg")][gidx]
@@ -137,6 +163,6 @@ if __name__ == "__main__":
         pts=n.copy(h[("ecef_m")])
         pts=pts[:,gidx]
 
-        itrs_model(pts,ra,dec,[lat[0],lon[0],hkm[0]*1e3],t0)
+        ra,dec,ra_std,dec_std=itrs_model(pts,ra,dec,[lat[0],lon[0],hkm[0]*1e3],t0)
 
 
